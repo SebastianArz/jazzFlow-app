@@ -1,0 +1,18 @@
+{
+  "appId": "com.sebastianarz.jazzflow",
+  "appName": "JazzFlow",
+  "webDir": "www",
+  "server": {
+    "url": "https://jazz-flow.base44.app/",
+    "cleartext": false,
+    "allowNavigation": [
+      "jazz-flow.base44.app",
+      "*.base44.app",
+      "base44.app"
+    ]
+  },
+  "android": {
+    "allowMixedContent": false,
+    "backgroundColor": "#031e4d"
+  }
+}
