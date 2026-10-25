@@ -1,5 +1,5 @@
 // ============================================================================
-//  make-icons.mjs – erzeugt App-Icon + Startbild fuer Android aus dem JazzFlow-Logo.
+//  make-icons.mjs – erzeugt App-Icon + Startbild (+ Benachrichtigungs-Symbol) fuer Android.
 //  Quelle (in dieser Reihenfolge):
 //    1) assets/source/icon.png und assets/source/icon-maskable.png im Repo (falls vorhanden,
 //       z. B. spaeter ein hochaufloesendes Logo – mind. 1024x1024 empfohlen)
@@ -52,7 +52,19 @@ execFileSync('npx', ['capacitor-assets', 'generate', '--android',
   '--splashBackgroundColor', BG, '--splashBackgroundColorDark', BG], { stdio: 'inherit' });
 
 const res = 'android/app/src/main/res';
-for (const must of ['mipmap-xxxhdpi/ic_launcher.png', 'mipmap-xxxhdpi/ic_launcher_foreground.png', 'drawable/splash.png']) {
+
+// Kleines Benachrichtigungs-Symbol (Android verlangt weiss auf transparent).
+// Eine Achtelnote – wird im Code als smallIcon "ic_stat_jazzflow" genutzt.
+const NOTE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <path fill="#fff" d="M10 3h2.2v12.4A3.6 3.6 0 1 1 10 12.1V3z"/>
+  <path fill="#fff" d="M12.2 3c.4 2.2 1.9 3.4 3.6 4.5 1.9 1.2 3 3 2.2 5.9-.2-1.9-1.4-3.1-3.2-3.7-1-.3-1.9-.6-2.6-1.1V3z"/>
+</svg>`;
+for (const [dir, px] of [['mdpi', 24], ['hdpi', 36], ['xhdpi', 48], ['xxhdpi', 72], ['xxxhdpi', 96]]) {
+  const out = path.join(res, `drawable-${dir}`);
+  fs.mkdirSync(out, { recursive: true });
+  await sharp(Buffer.from(NOTE_SVG), { density: 72 * px / 24 * 4 }).resize(px, px).png().toFile(path.join(out, 'ic_stat_jazzflow.png'));
+}
+for (const must of ['mipmap-xxxhdpi/ic_launcher.png', 'mipmap-xxxhdpi/ic_launcher_foreground.png', 'drawable/splash.png', 'drawable-xxxhdpi/ic_stat_jazzflow.png']) {
   if (!fs.existsSync(path.join(res, must))) throw new Error('Icon fehlt: ' + must);
 }
-console.log('App-Icon und Startbild erzeugt.');
+console.log('App-Icon, Startbild und Benachrichtigungs-Symbol erzeugt.');

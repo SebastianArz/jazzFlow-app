@@ -6,6 +6,8 @@
 //  1. Mikrofon-Berechtigungen (Stimmgeraet, Tonerkennung, Rhythmus)
 //  2. AdMob-App-ID (ohne eigene ID: Googles Test-App-ID)
 //  3. Ruecksprung nach Google-Login: jazzflow://auth  -> oeffnet die App
+//  4. Erinnerungen: KEIN "exakter Wecker" (SCHEDULE_EXACT_ALARM entfernen,
+//     Play-Richtlinie). Lokale Hinweise kommen dann auf ein paar Minuten genau.
 // ============================================================================
 import fs from 'node:fs';
 
@@ -45,10 +47,18 @@ insertOnce('android:scheme="jazzflow"', '        </activity>', `
             </intent-filter>
 `, 'before');
 
+// 4. Exakte Wecker-Berechtigung des Benachrichtigungs-Plugins entfernen
+if (!xml.includes('xmlns:tools=')) {
+  xml = xml.replace('<manifest xmlns:android="http://schemas.android.com/apk/res/android"',
+    '<manifest xmlns:android="http://schemas.android.com/apk/res/android"\n    xmlns:tools="http://schemas.android.com/tools"');
+}
+insertOnce('android.permission.SCHEDULE_EXACT_ALARM', '<uses-permission android:name="android.permission.INTERNET" />', `
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" tools:node="remove" />`, 'after');
+
 if (xml === before) console.log('AndroidManifest: bereits angepasst');
 fs.writeFileSync(MANIFEST, xml);
 
-for (const must of ['RECORD_AUDIO', 'com.google.android.gms.ads.APPLICATION_ID', 'android:scheme="jazzflow"']) {
+for (const must of ['RECORD_AUDIO', 'com.google.android.gms.ads.APPLICATION_ID', 'android:scheme="jazzflow"', 'xmlns:tools=', 'SCHEDULE_EXACT_ALARM" tools:node="remove"']) {
   if (!xml.includes(must)) throw new Error('Patch fehlgeschlagen: ' + must);
 }
-console.log('AndroidManifest angepasst (Mikrofon, AdMob ' + (process.env.ADMOB_APP_ID_ANDROID ? 'eigene ID' : 'Test-ID') + ', jazzflow://auth)');
+console.log('AndroidManifest angepasst (Mikrofon, AdMob ' + (process.env.ADMOB_APP_ID_ANDROID ? 'eigene ID' : 'Test-ID') + ', jazzflow://auth, ohne exakte Wecker)');
