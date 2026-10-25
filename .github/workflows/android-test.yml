@@ -37,6 +37,7 @@ jobs:
           npx cap add android
           npx cap sync android
           node scripts/patch-android.mjs
+          node scripts/make-icons.mjs
 
       - name: APK bauen
         working-directory: android

@@ -1,0 +1,98 @@
+# ============================================================================
+#  Android Store-Version bauen (AAB fuer Google Play + signierte APK)
+#  Start: Actions -> "Android Store-Version" -> Run workflow -> Version eingeben.
+#  versionCode = Laufnummer (steigt automatisch bei jedem Build).
+#  Signatur kommt aus den GitHub-Secrets:
+#    KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD
+#  Fehlen sie, wird mit einem WEGWERF-Schluessel signiert (nur zum Pruefen des
+#  Builds – diese Datei NICHT bei Google hochladen).
+#  Optional: ADMOB_APP_ID_ANDROID (echte AdMob-App-ID, sonst Google-Test-ID)
+# ============================================================================
+name: Android Store-Version
+
+on:
+  workflow_dispatch:
+    inputs:
+      versionName:
+        description: 'Versionsname (z. B. 0.2.0)'
+        required: true
+        default: '0.2.0'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Code holen
+        uses: actions/checkout@v4
+
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Pakete installieren
+        run: npm install --no-audit --no-fund
+
+      - name: Android-Projekt erzeugen, anpassen, Icons
+        env:
+          ADMOB_APP_ID_ANDROID: ${{ secrets.ADMOB_APP_ID_ANDROID }}
+        run: |
+          npx cap add android
+          npx cap sync android
+          node scripts/patch-android.mjs
+          node scripts/make-icons.mjs
+          node scripts/set-version.mjs "${{ github.run_number }}" "${{ inputs.versionName }}"
+
+      - name: Signatur vorbereiten
+        id: sign
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          KS="$RUNNER_TEMP/upload.jks"
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > "$KS"
+            echo "store_pw=$KEYSTORE_PASSWORD" >> "$GITHUB_OUTPUT"
+            echo "alias=$KEY_ALIAS" >> "$GITHUB_OUTPUT"
+            echo "key_pw=$KEY_PASSWORD" >> "$GITHUB_OUTPUT"
+            echo "label=jazzflow-store-${{ inputs.versionName }}-${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+            echo "Signiert mit dem Upload-Schluessel aus den Secrets."
+          else
+            PW=wegwerf-$RANDOM$RANDOM
+            keytool -genkeypair -keystore "$KS" -storetype PKCS12 -alias test -keyalg RSA -keysize 2048 -validity 30 -storepass "$PW" -keypass "$PW" -dname "CN=Test"
+            echo "::add-mask::$PW"
+            echo "store_pw=$PW" >> "$GITHUB_OUTPUT"
+            echo "alias=test" >> "$GITHUB_OUTPUT"
+            echo "key_pw=$PW" >> "$GITHUB_OUTPUT"
+            echo "label=NICHT-HOCHLADEN-testschluessel-${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+            echo "::warning::Keine Secrets gefunden – Build mit Wegwerf-Schluessel. Diese Datei NICHT bei Google hochladen."
+          fi
+          echo "ks=$KS" >> "$GITHUB_OUTPUT"
+
+      - name: AAB + APK bauen (signiert)
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew bundleRelease assembleRelease --no-daemon \
+            -Pandroid.injected.signing.store.file="${{ steps.sign.outputs.ks }}" \
+            -Pandroid.injected.signing.store.password="${{ steps.sign.outputs.store_pw }}" \
+            -Pandroid.injected.signing.key.alias="${{ steps.sign.outputs.alias }}" \
+            -Pandroid.injected.signing.key.password="${{ steps.sign.outputs.key_pw }}"
+
+      - name: Ergebnis bereitstellen
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.sign.outputs.label }}
+          path: |
+            android/app/build/outputs/bundle/release/app-release.aab
+            android/app/build/outputs/apk/release/app-release.apk
+          retention-days: 30

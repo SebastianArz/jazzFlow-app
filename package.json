@@ -1,10 +1,10 @@
 {
   "name": "jazzflow-app",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "JazzFlow – native Huelle (Capacitor) fuer https://jazz-flow.base44.app",
   "scripts": {
-    "android:prepare": "npx cap add android && npx cap sync android && node scripts/patch-android.mjs"
+    "android:prepare": "npx cap add android && npx cap sync android && node scripts/patch-android.mjs && node scripts/make-icons.mjs"
   },
   "dependencies": {
     "@capacitor-community/admob": "8.2.1",
@@ -13,5 +13,8 @@
     "@capacitor/browser": "8.0.5",
     "@capacitor/cli": "8.5.3",
     "@capacitor/core": "8.5.3"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "3.0.5"
   }
 }
