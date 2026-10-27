@@ -8,8 +8,11 @@
 //  3. Ruecksprung nach Google-Login: jazzflow://auth  -> oeffnet die App
 //  4. Erinnerungen: KEIN "exakter Wecker" (SCHEDULE_EXACT_ALARM entfernen,
 //     Play-Richtlinie). Lokale Hinweise kommen dann auf ein paar Minuten genau.
+//  5. Teilen-Ziel: JazzFlow erscheint im Teilen-Menue fuer HTML-Dateien
+//     (iReal-Pro-Export) -> Change Game. Plugin + MainActivity aus native/android/.
 // ============================================================================
 import fs from 'node:fs';
+import path from 'node:path';
 
 const MANIFEST = 'android/app/src/main/AndroidManifest.xml';
 // Googles offizielle Test-App-ID (zeigt nur Testanzeigen). Echte ID spaeter per GitHub-Secret.
@@ -55,10 +58,28 @@ if (!xml.includes('xmlns:tools=')) {
 insertOnce('android.permission.SCHEDULE_EXACT_ALARM', '<uses-permission android:name="android.permission.INTERNET" />', `
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" tools:node="remove" />`, 'after');
 
+// 5. Teilen-Ziel (nur HTML – so exportiert iReal Pro; kein text/plain, sonst
+//    taucht JazzFlow bei jedem geteilten Link auf)
+insertOnce('android.intent.action.SEND', '        </activity>', `
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/html" />
+            </intent-filter>
+`, 'before');
+
 if (xml === before) console.log('AndroidManifest: bereits angepasst');
 fs.writeFileSync(MANIFEST, xml);
 
-for (const must of ['RECORD_AUDIO', 'com.google.android.gms.ads.APPLICATION_ID', 'android:scheme="jazzflow"', 'xmlns:tools=', 'SCHEDULE_EXACT_ALARM" tools:node="remove"']) {
+for (const must of ['RECORD_AUDIO', 'com.google.android.gms.ads.APPLICATION_ID', 'android:scheme="jazzflow"', 'xmlns:tools=', 'SCHEDULE_EXACT_ALARM" tools:node="remove"', 'android.intent.action.SEND']) {
   if (!xml.includes(must)) throw new Error('Patch fehlgeschlagen: ' + must);
 }
+
+// 5b. Java-Dateien: eigenes Plugin + MainActivity, die es anmeldet
+const JAVA_DIR = 'android/app/src/main/java/com/sebastianarz/jazzflow';
+if (!fs.existsSync(path.join(JAVA_DIR, 'MainActivity.java'))) throw new Error('MainActivity.java nicht gefunden in ' + JAVA_DIR);
+for (const f of ['ShareTargetPlugin.java', 'MainActivity.java']) {
+  fs.copyFileSync(path.join('native/android', f), path.join(JAVA_DIR, f));
+}
+console.log('Teilen-Ziel: ShareTargetPlugin + MainActivity kopiert');
 console.log('AndroidManifest angepasst (Mikrofon, AdMob ' + (process.env.ADMOB_APP_ID_ANDROID ? 'eigene ID' : 'Test-ID') + ', jazzflow://auth, ohne exakte Wecker)');
