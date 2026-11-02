@@ -5,6 +5,7 @@ Der App-Inhalt kommt live von Base44 – dieses Repo enthaelt nur die Huelle.
 
 - `capacitor.config.json` – App-ID, Name, Start-Adresse
 - `scripts/patch-android.mjs` – Mikrofon, AdMob-ID, Login-Ruecksprung (jazzflow://auth), keine exakten Wecker (Erinnerungen), Teilen-Ziel fuer HTML (iReal Pro)
+- Plugins u. a.: Mikrofon/Login/Werbung, lokale Erinnerungen, **Keep Awake** (Bildschirm bleibt an, solange eine Session laeuft – Android + iOS)
 - `native/android/` – eigene Java-Dateien (ShareTarget-Plugin + MainActivity), werden beim Build ins Android-Projekt kopiert
 - `scripts/make-icons.mjs` – App-Icon, Startbild, Benachrichtigungs-Symbol `ic_stat_jazzflow`
 - `.github/workflows/android-test.yml` – baut die Test-APK (Actions -> Artifacts)
