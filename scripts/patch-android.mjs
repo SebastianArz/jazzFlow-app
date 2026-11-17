@@ -8,6 +8,10 @@
 //  3. Ruecksprung nach Google-Login: jazzflow://auth  -> oeffnet die App
 //  4. Erinnerungen: KEIN "exakter Wecker" (SCHEDULE_EXACT_ALARM entfernen,
 //     Play-Richtlinie). Lokale Hinweise kommen dann auf ein paar Minuten genau.
+//  3b. Geteilte Sessions/Sets: jazzflow://import#jf=…  (Knopf auf der Web-Seite)
+//  3c. App-Link https://jazz-flow.base44.app/daily-session/sessions#jf=… oeffnet
+//      direkt die App – nur wenn die Domain /.well-known/assetlinks.json liefert
+//      (sonst oeffnet der Link wie bisher den Browser). Nur DIESER Pfad.
 //  5. Teilen-Ziel: JazzFlow erscheint im Teilen-Menue fuer HTML-Dateien
 //     (iReal-Pro-Export) -> Change Game. Plugin + MainActivity aus native/android/.
 // ============================================================================
@@ -50,6 +54,20 @@ insertOnce('android:scheme="jazzflow"', '        </activity>', `
             </intent-filter>
 `, 'before');
 
+// 3b. Import-Links (Fixphase 4) im selben Filter wie der Login-Ruecksprung
+insertOnce('android:host="import"', '<data android:scheme="jazzflow" android:host="auth" />', `
+                <data android:scheme="jazzflow" android:host="import" />`, 'after');
+
+// 3c. https-App-Link nur fuer die Import-Seite (autoVerify: Android prueft assetlinks.json)
+insertOnce('android:pathPrefix="/daily-session/sessions"', '        </activity>', `
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="jazz-flow.base44.app" android:pathPrefix="/daily-session/sessions" />
+            </intent-filter>
+`, 'before');
+
 // 4. Exakte Wecker-Berechtigung des Benachrichtigungs-Plugins entfernen
 if (!xml.includes('xmlns:tools=')) {
   xml = xml.replace('<manifest xmlns:android="http://schemas.android.com/apk/res/android"',
@@ -71,7 +89,7 @@ insertOnce('android.intent.action.SEND', '        </activity>', `
 if (xml === before) console.log('AndroidManifest: bereits angepasst');
 fs.writeFileSync(MANIFEST, xml);
 
-for (const must of ['RECORD_AUDIO', 'com.google.android.gms.ads.APPLICATION_ID', 'android:scheme="jazzflow"', 'xmlns:tools=', 'SCHEDULE_EXACT_ALARM" tools:node="remove"', 'android.intent.action.SEND']) {
+for (const must of ['RECORD_AUDIO', 'com.google.android.gms.ads.APPLICATION_ID', 'android:scheme="jazzflow"', 'android:host="import"', 'android:pathPrefix="/daily-session/sessions"', 'xmlns:tools=', 'SCHEDULE_EXACT_ALARM" tools:node="remove"', 'android.intent.action.SEND']) {
   if (!xml.includes(must)) throw new Error('Patch fehlgeschlagen: ' + must);
 }
 
@@ -82,4 +100,4 @@ for (const f of ['ShareTargetPlugin.java', 'MainActivity.java']) {
   fs.copyFileSync(path.join('native/android', f), path.join(JAVA_DIR, f));
 }
 console.log('Teilen-Ziel: ShareTargetPlugin + MainActivity kopiert');
-console.log('AndroidManifest angepasst (Mikrofon, AdMob ' + (process.env.ADMOB_APP_ID_ANDROID ? 'eigene ID' : 'Test-ID') + ', jazzflow://auth, ohne exakte Wecker)');
+console.log('AndroidManifest angepasst (Mikrofon, AdMob ' + (process.env.ADMOB_APP_ID_ANDROID ? 'eigene ID' : 'Test-ID') + ', jazzflow://auth + import, App-Link, ohne exakte Wecker)');
